@@ -2,12 +2,12 @@ import { createDraft, Draft, finishDraft } from "immer";
 import { ObjectPatcher, patchObject } from "./patchObject";
 import { DeepReadonly } from "./typeutils";
 
-export type SliceDefinition<State> = {
+export type SliceDefinition<State, ComputedState> = {
   actions: {
     [K: string]: SliceAction<State>;
   };
   computed?: {
-    [K: string]: SliceComputable<State>;
+    [K: string]: SliceComputable<State & ComputedState>;
   };
 };
 
@@ -27,7 +27,7 @@ export type SliceAction<State> = {
   (context: SliceActionContext<State>, ...args: any[]): void | Promise<void>;
 };
 
-export type Slice<State, SDef extends SliceDefinition<any>> = {
+export type Slice<State, SDef extends SliceDefinition<any, any>> = {
   initialStateFactory: () => State;
   actions: SDef["actions"];
   computables: SDef["computed"] extends undefined | void
@@ -67,10 +67,10 @@ export type SliceToComputeds<S extends Slice<any, any>> = {
   [K in keyof S["computables"]]: ReturnType<S["computables"][K]>;
 };
 
-export const createSlice = <S, VDef extends SliceDefinition<S>>(
-  sliceDef: VDef,
+export const createSlice = <S, Def extends SliceDefinition<S, any>>(
+  sliceDef: Def,
   initialStateFactory: () => S
-): Slice<S, VDef> => {
+): Slice<S, Def> => {
   const { computed = {} as any, actions } = sliceDef;
   return { initialStateFactory, actions, computables: computed };
 };

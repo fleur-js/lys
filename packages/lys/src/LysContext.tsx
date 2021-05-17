@@ -3,7 +3,7 @@ import React, { createContext, useContext, useMemo } from "react";
 import { ObjectPatcher } from "./patchObject";
 import { instantiateSlice, Slice, SliceInstance, StateOfSlice } from "./slice";
 
-export class LysContext {
+class LysContext {
   private slices = new Map<Slice<any, any>, SliceInstance<any>>();
   private sliceObservers = new Map<Slice<any, any>, () => void>();
 
@@ -21,17 +21,17 @@ export class LysContext {
     };
   };
 
-  public getSliceInstance<S extends Slice<any, any>>(
+  public getSlice<S extends Slice<any, any>>(
     slice: S
   ): SliceInstance<S> | undefined {
     return this.slices.get(slice);
   }
 
-  public hasSliceInstance<S extends Slice<any, any>>(slice: S) {
+  public hasSlice<S extends Slice<any, any>>(slice: S) {
     return this.slices.has(slice);
   }
 
-  public createSliceInstance<S extends Slice<any, any>>(
+  public createSlice<S extends Slice<any, any>>(
     slice: S,
     initialState?: ObjectPatcher<Draft<StateOfSlice<S>>> | null
   ) {
@@ -45,7 +45,7 @@ export class LysContext {
     return instance;
   }
 
-  public unsetSliceInstance(slice: Slice<any, any>) {
+  public unsetSlice(slice: Slice<any, any>) {
     this.slices.delete(slice);
     this.sliceObservers.delete(slice);
   }
@@ -68,11 +68,14 @@ export const useLysContext = () => {
   return context;
 };
 
-export const LysProvider: React.FC = ({ children }) => {
-  const context = useMemo(() => createLysContext(), []);
+export const LysProvider: React.FC<{ context?: LysContext }> = ({
+  children,
+  context,
+}) => {
+  const usingContext = useMemo(() => context ?? createLysContext(), []);
 
   return (
-    <LysReactContext.Provider value={context}>
+    <LysReactContext.Provider value={usingContext}>
       {children}
     </LysReactContext.Provider>
   );

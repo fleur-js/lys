@@ -1,6 +1,6 @@
 {
   "name": "@fleur/lys",
-  "version": "2.0.1",
+  "version": "2.1.0@next-1",
   "description": "lys is an micro statement manager for '21s react",
   "main": "dist/index.js",
   "module": "dist/index.esm.js",

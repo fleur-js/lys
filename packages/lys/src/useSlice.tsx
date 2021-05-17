@@ -65,17 +65,13 @@ const useLysSliceInternal = <S extends Slice<any, any>>(
   const isFirstRendering = useRef(true);
   const initialStateLoaded = useRef(initialState != null);
 
-  if (!isRoot && !lysContext.hasSliceInstance(slice)) {
+  if (!isRoot && !lysContext.hasSlice(slice)) {
     throw new Error(
       `Lys: Slice must be initialized in upper tree Component with \`useLysSliceRoot(slice)\``
     );
   }
 
-  if (
-    isFirstRendering.current &&
-    isRoot &&
-    lysContext.hasSliceInstance(slice)
-  ) {
+  if (isFirstRendering.current && isRoot && lysContext.hasSlice(slice)) {
     console.warn(
       "Lys: Slice is already initalized in upper tree. Ignore this if you are using StrictMode"
     );
@@ -86,8 +82,7 @@ const useLysSliceInternal = <S extends Slice<any, any>>(
 
   const instance = useMemo(
     () =>
-      lysContext.getSliceInstance(slice) ??
-      lysContext.createSliceInstance(slice, initialState),
+      lysContext.getSlice(slice) ?? lysContext.createSlice(slice, initialState),
     [slice]
   );
 
@@ -110,7 +105,7 @@ const useLysSliceInternal = <S extends Slice<any, any>>(
     if (!isRoot) return;
     return () => {
       instance.dispose();
-      lysContext.unsetSliceInstance(slice);
+      lysContext.unsetSlice(slice);
     };
   }, []);
 
