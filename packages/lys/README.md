@@ -41,6 +41,7 @@ Summary in [CodeSandbox Example](https://codesandbox.io/s/fleur-lys-official-exa
 
 First, define your slice.
 
+<!-- prettier-ignore -->
 ```tsx
 import { createSlice } from "@fleur/lys";
 
@@ -48,11 +49,7 @@ const formSlice = createSlice(
   {
     actions: {
       // Define actions
-      async patchItem(
-        { commit },
-        index: number,
-        patch: Partial<FormState["items"][0]>
-      ) {
+      async patchItem({ commit }, index: number, patch: Partial<State['form']["items"][0]>) {
         commit((draft) => {
           Object.assign(draft.form.items[index], patch);
         });
@@ -65,10 +62,7 @@ const formSlice = createSlice(
         commit({
           submiting: false,
           form: await (
-            await fetch("/api/users", {
-              method: "POST",
-              body: JSON.stringify(state.form),
-            })
+            await fetch("/api/users", { body: JSON.stringify(state.form) })
           ).json(),
         });
       },
@@ -86,7 +80,7 @@ const formSlice = createSlice(
       canSubmit: (state) => !state.submitting,
     },
   },
-  (): FormState => ({
+  (): State['form'] => ({
     // Define initial state
     submitting: false,
     hasError: false,
@@ -101,6 +95,7 @@ const formSlice = createSlice(
 
 Next, initialize slice on your page component
 
+<!-- prettier-ignore -->
 ```tsx
 import { useLysSliceRoot, useLysSlice } from "@fleur/lys";
 
@@ -132,12 +127,8 @@ export const NewUserPage = () => {
   return (
     <div>
       <label>
-        Display name:{" "}
-        <input
-          type="text"
-          value={state.form.name}
-          onChange={handleChangeName}
-        />
+        Display name:
+        <input type="text" value={state.form.name} onChange={handleChangeName} />
       </label>
 
       <h1>Your items</h1>
@@ -155,6 +146,7 @@ export const NewUserPage = () => {
 
 Use initialize slice into child component
 
+<!-- prettier-ignore -->
 ```tsx
 // In child component
 const Item = ({ index }) => {
