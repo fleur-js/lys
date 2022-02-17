@@ -13,10 +13,11 @@ describe("slice", () => {
   const slice = createSlice(
     {
       actions: {
-        async submit({ draft, updateTemporary }) {
-          updateTemporary({ submitting: true });
+        async submit(x) {
+          x.commit({ submitting: true });
+
           await wait(1000);
-          draft.submitting = false;
+          x.commit({ submitting: false });
         },
       },
       computed: {
@@ -95,8 +96,8 @@ describe("slice", () => {
         createSlice(
           {
             actions: {
-              sample: ({ draft }) => {
-                sampledState = { ...draft };
+              sample: (x) => {
+                sampledState = { ...x.state };
               },
             },
             computed: {

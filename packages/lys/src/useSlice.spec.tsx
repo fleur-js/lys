@@ -24,8 +24,9 @@ describe("useLysSlice", () => {
     const slice = createSlice(
       {
         actions: {
-          increment({ draft }) {
-            draft.count++;
+          increment(x) {
+            x.commit({ count: x.state.count + 1 });
+            x.state.isZero;
           },
         },
         computed: {
