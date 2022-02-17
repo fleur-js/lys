@@ -19,6 +19,10 @@ describe("slice", () => {
           await wait(1000);
           x.commit({ submitting: false });
         },
+        getStateSpec(x, spy: (s: any) => void) {
+          x.commit({ submitting: true });
+          spy({ ...x.getState() });
+        },
       },
       computed: {
         isEditable: (s) => !s.submitting,
@@ -113,7 +117,7 @@ describe("slice", () => {
     });
   });
 
-  describe("changeImmediate", () => {
+  describe("commit", () => {
     it("it works", async () => {
       const { state, actions } = instantiateSlice(slice);
 
@@ -126,5 +130,16 @@ describe("slice", () => {
       await promise;
       expect(state.current.submitting).toBe(false);
     });
+  });
+
+  describe("getState", () => {
+    const { state, actions } = instantiateSlice(slice);
+
+    expect(state.current).toMatchObject({ submitting: false });
+
+    const spy = jest.fn();
+    actions.getStateSpec(spy);
+
+    expect(spy).toBeCalledWith(expect.objectContaining({ submitting: true }));
   });
 });

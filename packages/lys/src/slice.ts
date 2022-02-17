@@ -1,6 +1,7 @@
 import { createDraft, Draft, finishDraft } from "immer";
 import { ObjectPatcher, patchObject } from "./patchObject";
 import { DeepReadonly } from "./typeutils";
+import { proxyDeepFreeze } from "./proxyDeepFreeze";
 
 export type SliceDefinition<State> = {
   actions: {
@@ -17,10 +18,10 @@ export type SliceComputable<State> = {
 
 export type SliceActionContext<State> = {
   state: State;
-  /**
-   * Update state and emit changes temporary.
-   */
+  /** Update state and emit changes temporary. */
   commit: (patcher: ObjectPatcher<Draft<State>>) => void;
+  /** Get latest state */
+  getState: () => State;
 };
 
 export type SliceAction<State> = {
@@ -104,27 +105,21 @@ export const instantiateSlice = <S extends Slice<any, any>>(
     changed?.(nextState);
   };
 
+  const getState = () => {
+    return proxyDeepFreeze(state.current);
+  };
+
+  const commit = (patcher: ObjectPatcher<Draft<StateOfSlice<any>>>) => {
+    const draft = createDraft(state.current);
+    patchObject(draft, patcher);
+    const nextState = finishDraft(draft);
+
+    updateState(nextState);
+  };
+
   const execAction = async (action: SliceAction<any>, ...args: any[]) => {
-    const base = state.current;
-    const freezedState = createDraft(base);
-
-    const commit = (patcher: ObjectPatcher<Draft<StateOfSlice<any>>>) => {
-      const draft = createDraft(state.current);
-      patchObject(draft, patcher);
-
-      const nextState = finishDraft(draft);
-      updateState(nextState);
-    };
-
-    try {
-      const result = action({ state: freezedState, commit }, ...args);
-
-      if (result instanceof Promise) {
-        await result;
-      }
-    } finally {
-      finishDraft(freezedState);
-    }
+    const proxyBase = getState();
+    await action({ state: proxyBase, commit, getState }, ...args);
   };
 
   const proxyActions: any = {};
@@ -135,12 +130,14 @@ export const instantiateSlice = <S extends Slice<any, any>>(
   });
 
   (proxyActions as SliceToActions<S>).set = (patcher) => {
-    execAction(({ state: draft }) => patchObject(draft, patcher));
+    execAction((x) => x.commit((draft) => patchObject(draft, patcher)));
   };
   (proxyActions as SliceToActions<S>).reset = (k?) => {
-    execAction(({ state: draft }) => {
+    execAction((x) => {
       const initial = slice.initialStateFactory();
-      Object.assign(draft, k != null ? { [k]: initial[k] } : initial);
+      x.commit((draft) =>
+        Object.assign(draft, k != null ? { [k]: initial[k] } : initial)
+      );
     });
   };
 

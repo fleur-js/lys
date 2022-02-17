@@ -14,8 +14,9 @@ describe("mockSlice", () => {
     expect(actionSpy.mock.calls.length).toBe(0);
     expect(mockSpy).toBeCalledWith(
       expect.objectContaining({
-        updateTemporary: expect.anything(),
-        draft: expect.anything(),
+        commit: expect.anything(),
+        state: expect.anything(),
+        getState: expect.anything(),
       }),
       "a"
     );

@@ -5,16 +5,21 @@ Breaking API Changes for simplify state update method.
 - Rename `draft` to `state` and it now readonly.
   - Any assigns to `state` now be ignored, use `commit()` instead.
 - Rename `updateTemporary` to `commit`.
+- Add `getState` in SliceActionContext
+
+### Migration
 
 ```ts
 // After 3.0.0
 createSlice({
   actions: {
-    someAction: async ({ draft, updateTemporary }) => {
-      updateTemporary({ fetching: true });
+    someAction: async ({ state, commit }) => {
+      commit({ fetching: true });
 
-      draft.data = await fetchAPI(draft.id);
-      draft.fethcing = false;
+      commit({
+        data: await fetchAPI(state.id),
+        fethcing: false,
+      });
     },
   },
 });
@@ -22,13 +27,11 @@ createSlice({
 // Before 3.0.0
 createSlice({
   actions: {
-    someAction: async (x) => {
-      x.commit({ fetching: true });
+    someAction: async ({ draft, updateTemporary }) => {
+      updateTemporary({ fetching: true });
 
-      x.commit({
-        data: await fetchAPI(x.state.id),
-        fethcing: false,
-      });
+      draft.data = await fetchAPI(draft.id);
+      draft.fethcing = false;
     },
   },
 });
