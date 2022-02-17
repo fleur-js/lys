@@ -43,44 +43,42 @@ First, define your slice.
 
 <!-- prettier-ignore -->
 ```tsx
-import { createSlice } from "@fleur/lys";
+import { createSlice } from '@fleur/lys';
 
-const formSlice = createSlice(
-  {
-    actions: {
-      // Define actions
-      async patchItem({ commit }, index: number, patch: Partial<State['form']["items"][0]>) {
-        commit((draft) => {
-          Object.assign(draft.form.items[index], patch);
-        });
-      },
-      async submit({ state, commit }) {
-        if (state.hasError) return;
-
-        commit({ submitting: true });
-
-        commit({
-          submiting: false,
-          form: await (
-            await fetch("/api/users", { body: JSON.stringify(state.form) })
-          ).json(),
-        });
-      },
-      async validate({ state }) {
-        commit({ hasError: false });
-
-        // Use your favorite validator
-        commit({ hasError: await validateForm(state.form) });
-      },
+const formSlice = createSlice({
+  actions: {
+    // Define actions
+    async patchItem({ commit }, index: number, patch: Partial<State['form']['items'][0]>) {
+      commit((draft) => {
+        Object.assign(draft.form.items[index], patch);
+      });
     },
-    computed: {
-      // You can define computable values in `computed`
-      // `computed` is cached between to next state changed
-      itemOf: (state) => (index: number) => state.form.items[index],
-      canSubmit: (state) => !state.submitting,
+    async submit({ state, commit }) {
+      if (state.hasError) return;
+
+      commit({ submitting: true });
+
+      commit({
+        submiting: false,
+        form: await (
+          await fetch('/api/users', { body: JSON.stringify(state.form) })
+        ).json(),
+      });
+    },
+    async validate({ state }) {
+      commit({ hasError: false });
+
+      // Use your favorite validator
+      commit({ hasError: await validateForm(state.form) });
     },
   },
-  (): State['form'] => ({
+  computed: {
+    // You can define computable values in `computed`
+    // `computed` is cached between to next state changed
+    itemOf: (state) => (index: number) => state.form.items[index],
+    canSubmit: (state) => !state.submitting,
+  },
+  }, (): State => ({
     // Define initial state
     submitting: false,
     hasError: false,
@@ -97,10 +95,10 @@ Next, initialize slice on your page component
 
 <!-- prettier-ignore -->
 ```tsx
-import { useLysSliceRoot, useLysSlice } from "@fleur/lys";
+import { useLysSliceRoot, useLysSlice } from '@fleur/lys';
 
 export const NewUserPage = () => {
-  const { data: initialData, error } = useSWR("/users/1", fetcher);
+  const { data: initialData, error } = useSWR('/users/1', fetcher);
 
   // Initialize slice by `useLysSliceRoot`
   // `initialState` in second argument, it shallow override to Slice's initial state.
