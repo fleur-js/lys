@@ -181,8 +181,8 @@ import { instantiateSlice, createSlice } from "@fleur/lys";
 const slice = createSlice(
   {
     actions: {
-      increment({ state }) {
-        state.count++;
+      increment({ commit }) {
+        commit((draft) => draft.count++);
       },
     },
     computed: {
