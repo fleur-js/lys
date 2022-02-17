@@ -16,11 +16,11 @@ export type SliceComputable<State> = {
 };
 
 export type SliceActionContext<State> = {
-  draft: Draft<State>;
+  state: State;
   /**
    * Update state and emit changes temporary.
    */
-  updateTemporary: (patcher: ObjectPatcher<Draft<State>>) => void;
+  commit: (patcher: ObjectPatcher<Draft<State>>) => void;
 };
 
 export type SliceAction<State> = {
@@ -106,30 +106,25 @@ export const instantiateSlice = <S extends Slice<any, any>>(
 
   const execAction = async (action: SliceAction<any>, ...args: any[]) => {
     const base = state.current;
-    const draft = createDraft(base);
+    const freezedState = createDraft(base);
 
-    const updateTemporary = (
-      patcher: ObjectPatcher<Draft<StateOfSlice<any>>>
-    ) => {
-      const tmpDraft = createDraft(base);
-      patchObject(tmpDraft, patcher);
+    const commit = (patcher: ObjectPatcher<Draft<StateOfSlice<any>>>) => {
+      const draft = createDraft(state.current);
+      patchObject(draft, patcher);
 
-      // Won't do this. When use destructive assignment by draft
-      // destructed property is not update and desync from base draft, it makes confusing
-      // // patchObject(draft, patcher);
-
-      const nextState = finishDraft(tmpDraft);
+      const nextState = finishDraft(draft);
       updateState(nextState);
     };
 
-    const result = action({ draft, updateTemporary }, ...args);
+    try {
+      const result = action({ state: freezedState, commit }, ...args);
 
-    if (result instanceof Promise) {
-      await result;
+      if (result instanceof Promise) {
+        await result;
+      }
+    } finally {
+      finishDraft(freezedState);
     }
-
-    const nextState = finishDraft(draft);
-    updateState(nextState);
   };
 
   const proxyActions: any = {};
@@ -140,10 +135,10 @@ export const instantiateSlice = <S extends Slice<any, any>>(
   });
 
   (proxyActions as SliceToActions<S>).set = (patcher) => {
-    execAction(({ draft }) => patchObject(draft, patcher));
+    execAction(({ state: draft }) => patchObject(draft, patcher));
   };
   (proxyActions as SliceToActions<S>).reset = (k?) => {
-    execAction(({ draft }) => {
+    execAction(({ state: draft }) => {
       const initial = slice.initialStateFactory();
       Object.assign(draft, k != null ? { [k]: initial[k] } : initial);
     });
