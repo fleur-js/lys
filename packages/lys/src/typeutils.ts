@@ -13,7 +13,7 @@ export type DeepPartial<T> = T extends () =>
 
 // prettier-ignore
 export type DeepReadonly<T> =
-  T extends () => any | boolean | number | string | null | undefined ? T
+  T extends ((...args: any[]) => any) | boolean | number | string | null | undefined ? T
   : T extends Array<infer R> ? ReadonlyArray<DeepReadonly<R>>
   : T extends Map<infer K, infer V> ? ReadonlyMap<K, V>
   : T extends Set<infer V> ? ReadonlySet<V>
