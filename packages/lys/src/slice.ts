@@ -17,7 +17,7 @@ export type SliceComputable<State> = {
 };
 
 export type SliceActionContext<State> = {
-  state: State;
+  state: DeepReadonly<State>;
   /** Update state and emit changes temporary. */
   commit: (patcher: ObjectPatcher<Draft<State>>) => void;
   /** Get latest state */
