@@ -44,11 +44,19 @@ export type StateOfSlice<T extends Slice<any, any>> = T extends Slice<
 
 export type SliceInstance<S extends Slice<any, any>> = {
   state: { readonly current: StateOfSlice<S> & SliceToComputeds<S> };
-  actions: SliceToActions<S>;
+  actions: SliceActions<S>;
   dispose: () => void;
 };
 
 type ExtraArgs<T> = T extends (_: any, ...args: infer R) => any ? R : never;
+
+export type SliceActions<S extends Slice<any, any>> = SliceToActions<S>;
+export type DefaultSliceActions<S extends Slice<any, any>> = {
+  /** @param applier Shallow merging object or modifier function */
+  set(applier: ObjectPatcher<Draft<StateOfSlice<S>>>): void;
+  /** @param k Field name to reset to initial state, no specified to reset all fields */
+  reset(k?: keyof StateOfSlice<S>): void;
+};
 
 // prettier-ignore
 export type SliceToActions<S extends Slice<any, any>> = {
@@ -56,12 +64,7 @@ export type SliceToActions<S extends Slice<any, any>> = {
     ReturnType<S["actions"][K]> extends void | undefined ? (...args: ExtraArgs<S['actions'][K]>) => void
     : ReturnType<S["actions"][K]> extends Promise<any> ? (...args: ExtraArgs<S['actions'][K]>) => Promise<void>
     : never;
-} & {
-  /** @param applier Shallow merging object or modifier function */
-  set(applier: ObjectPatcher<Draft<StateOfSlice<S>>>): void;
-  /** @param k Field name to reset to initial state, no specified to reset all fields */
-  reset(k?: keyof StateOfSlice<S>): void;
-};
+} & DefaultSliceActions<S>
 
 export type SliceToComputeds<S extends Slice<any, any>> = {
   [K in keyof S["computables"]]: ReturnType<S["computables"][K]>;
