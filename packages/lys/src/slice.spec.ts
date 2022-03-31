@@ -23,6 +23,10 @@ describe("slice", () => {
           x.commit({ submitting: true });
           spy({ ...x.getState() });
         },
+        getUnwrapReadonlySpec(x, spy: (s: any) => void) {
+          const s: State = x.unwrapReadonly(x.getState());
+          spy(s);
+        },
       },
       computed: {
         isEditable: (s) => !s.submitting,
@@ -141,5 +145,14 @@ describe("slice", () => {
     actions.getStateSpec(spy);
 
     expect(spy).toBeCalledWith(expect.objectContaining({ submitting: true }));
+  });
+
+  describe("unwrapReadonly", async () => {
+    const { state, actions } = instantiateSlice(slice);
+
+    const spy = jest.fn();
+    actions.getUnwrapReadonlySpec(spy);
+
+    expect(spy.mock.calls[0][0]).toEqual(state.current);
   });
 });
