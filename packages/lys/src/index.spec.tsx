@@ -10,15 +10,14 @@ describe("lys", () => {
   const formSlice = createSlice(
     {
       actions: {
-        async submit({ draft, updateTemporary }) {
-          updateTemporary((draft) => {
+        async submit(x) {
+          x.commit((draft) => {
             draft.status.loading = true;
           });
 
           await wait(1000);
 
-          draft.status.loading = false;
-          draft.status.submitted = true;
+          x.commit({ status: { loading: false, submitted: true } });
         },
       },
     },

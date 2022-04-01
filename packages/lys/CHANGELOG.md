@@ -1,3 +1,49 @@
+## 3.0.0
+
+Breaking API Changes for simplify state update method.
+
+- Rename `draft` to `state` and it now readonly.
+  - Any assigns to `state` now be ignored, use `commit()` instead.
+- Rename `updateTemporary` to `commit`.
+- Add `getState` in SliceActionContext
+
+### Migration
+
+```ts
+// After 3.0.0
+createSlice({
+  actions: {
+    someAction: async (x) => {
+      x.commit({ fetching: true });
+
+      x.commit({
+        data: await fetchAPI(state.id),
+        fethcing: false,
+      });
+
+      // Get latest state
+      x.getState();
+
+      // Unwrap state from　DeepReadonly<S>
+      x.unwrapReadonly(x.state);
+      x.unwrapReadonly(x.state.nodeOfState);
+    },
+  },
+});
+
+// Before 3.0.0
+createSlice({
+  actions: {
+    someAction: async ({ draft, updateTemporary }) => {
+      updateTemporary({ fetching: true });
+
+      draft.data = await fetchAPI(draft.id);
+      draft.fethcing = false;
+    },
+  },
+});
+```
+
 ## 2.0.1
 
 - Fix README
@@ -5,6 +51,7 @@
 ## 2.0.0
 
 - Breaking: `createSlice` interface was changed
+
   ```ts
   // After 2.0.0
   createSlice({
@@ -21,6 +68,7 @@
     someAction: (...) => { ... },
   }, () => ({ /* initial state */}))
   ```
+
 - [#3](https://github.com/fleur-js/lys/pull/3) Introduce `computed` property
 - [#4](https://github.com/fleur-js/lys/pull/4) Add `mockSlice` function for testing
 

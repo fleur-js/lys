@@ -13,10 +13,19 @@ describe("slice", () => {
   const slice = createSlice(
     {
       actions: {
-        async submit({ draft, updateTemporary }) {
-          updateTemporary({ submitting: true });
+        async submit(x) {
+          x.commit({ submitting: true });
+
           await wait(1000);
-          draft.submitting = false;
+          x.commit({ submitting: false });
+        },
+        getStateSpec(x, spy: (s: any) => void) {
+          x.commit({ submitting: true });
+          spy({ ...x.getState() });
+        },
+        getUnwrapReadonlySpec(x, spy: (s: any) => void) {
+          const s: State = x.unwrapReadonly(x.getState());
+          spy(s);
         },
       },
       computed: {
@@ -95,8 +104,8 @@ describe("slice", () => {
         createSlice(
           {
             actions: {
-              sample: ({ draft }) => {
-                sampledState = { ...draft };
+              sample: (x) => {
+                sampledState = { ...x.state };
               },
             },
             computed: {
@@ -112,7 +121,7 @@ describe("slice", () => {
     });
   });
 
-  describe("changeImmediate", () => {
+  describe("commit", () => {
     it("it works", async () => {
       const { state, actions } = instantiateSlice(slice);
 
@@ -124,6 +133,28 @@ describe("slice", () => {
       await promise;
       await promise;
       expect(state.current.submitting).toBe(false);
+    });
+  });
+
+  describe("getState", () => {
+    const { state, actions } = instantiateSlice(slice);
+
+    expect(state.current).toMatchObject({ submitting: false });
+
+    const spy = jest.fn();
+    actions.getStateSpec(spy);
+
+    expect(spy).toBeCalledWith(expect.objectContaining({ submitting: true }));
+  });
+
+  describe("unwrapReadonly", () => {
+    it("check", () => {
+      const { state, actions } = instantiateSlice(slice);
+
+      const spy = jest.fn();
+      actions.getUnwrapReadonlySpec(spy);
+
+      expect(spy.mock.calls[0][0]).toEqual(state.current);
     });
   });
 });

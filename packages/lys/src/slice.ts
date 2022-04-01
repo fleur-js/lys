@@ -1,6 +1,5 @@
 import { createDraft, Draft, finishDraft } from "immer";
 import { ObjectPatcher, patchObject } from "./patchObject";
-import { DeepReadonly } from "./typeutils";
 
 export type SliceDefinition<State> = {
   actions: {
@@ -16,11 +15,12 @@ export type SliceComputable<State> = {
 };
 
 export type SliceActionContext<State> = {
-  draft: Draft<State>;
-  /**
-   * Update state and emit changes temporary.
-   */
-  updateTemporary: (patcher: ObjectPatcher<Draft<State>>) => void;
+  state: DeepReadonly<State>;
+  /** Update state and emit changes temporary. */
+  commit: (patcher: ObjectPatcher<Draft<State>>) => void;
+  /** Get latest state */
+  getState: () => State;
+  unwrapReadonly: <T extends DeepReadonly<any>>(x: T) => UnwrapDeepReadonly<T>;
 };
 
 export type SliceAction<State> = {
@@ -67,6 +67,36 @@ export type SliceToComputeds<S extends Slice<any, any>> = {
   [K in keyof S["computables"]]: ReturnType<S["computables"][K]>;
 };
 
+declare const FreezeMark: unique symbol;
+type FreezedStateMark = { [FreezeMark]: never };
+
+// prettier-ignore
+type DeepReadonly<T>  =
+T extends string | number | boolean | symbol | undefined | null | bigint ? T
+  : T extends (...args: any[]) => unknown ? T
+  : T extends ReadonlyArray<infer V> ? ReadonlyArray<V> & FreezedStateMark
+  : T extends ReadonlyMap<infer K, infer V> ? ReadonlyMap<K, V>  & FreezedStateMark
+  : T extends ReadonlySet<infer V> ? ReadonlySet<V>  & FreezedStateMark
+  // eslint-disable-next-line @typescript-eslint/ban-types
+  : T extends object ? { readonly [K in keyof T]: DeepReadonly<T[K]> } & FreezedStateMark
+  : never
+
+// prettier-ignore
+type UnwrapDeepReadonly<T> =
+  T extends FreezedStateMark ? UnwrapDeepReadonly<Omit<T, keyof FreezedStateMark>>
+  : T extends string | number | boolean | symbol | undefined | null | bigint ? T
+  : T extends (...args: any[]) => unknown ? T
+  : T extends ReadonlyArray<infer V> ? Array<V>
+  : T extends ReadonlyMap<infer K, infer V> ? Map<K, V>
+  : T extends ReadonlySet<infer V> ? Set<V>
+  // eslint-disable-next-line @typescript-eslint/ban-types
+  : T extends object ? { -readonly [K in keyof T]: UnwrapDeepReadonly<T[K]> }
+  // : T extends symbol ? (T extends FreezedStateMark ? never : T)
+  : never
+
+const unwrapReadonly: SliceActionContext<any>["unwrapReadonly"] = (v) =>
+  v as any;
+
 export const createSlice = <S, VDef extends SliceDefinition<S>>(
   sliceDef: VDef,
   initialStateFactory: () => S
@@ -104,32 +134,24 @@ export const instantiateSlice = <S extends Slice<any, any>>(
     changed?.(nextState);
   };
 
-  const execAction = async (action: SliceAction<any>, ...args: any[]) => {
-    const base = state.current;
-    const draft = createDraft(base);
+  const getState = (): DeepReadonly<StateOfSlice<S>> => {
+    return state.current;
+  };
 
-    const updateTemporary = (
-      patcher: ObjectPatcher<Draft<StateOfSlice<any>>>
-    ) => {
-      const tmpDraft = createDraft(base);
-      patchObject(tmpDraft, patcher);
-
-      // Won't do this. When use destructive assignment by draft
-      // destructed property is not update and desync from base draft, it makes confusing
-      // // patchObject(draft, patcher);
-
-      const nextState = finishDraft(tmpDraft);
-      updateState(nextState);
-    };
-
-    const result = action({ draft, updateTemporary }, ...args);
-
-    if (result instanceof Promise) {
-      await result;
-    }
-
+  const commit = (patcher: ObjectPatcher<Draft<StateOfSlice<any>>>) => {
+    const draft = createDraft(state.current);
+    patchObject(draft, patcher);
     const nextState = finishDraft(draft);
+
     updateState(nextState);
+  };
+
+  const execAction = async (action: SliceAction<any>, ...args: any[]) => {
+    const proxyBase = getState();
+    await action(
+      { state: proxyBase, commit, getState, unwrapReadonly },
+      ...args
+    );
   };
 
   const proxyActions: any = {};
@@ -140,12 +162,14 @@ export const instantiateSlice = <S extends Slice<any, any>>(
   });
 
   (proxyActions as SliceToActions<S>).set = (patcher) => {
-    execAction(({ draft }) => patchObject(draft, patcher));
+    execAction((x) => x.commit((draft) => patchObject(draft, patcher)));
   };
   (proxyActions as SliceToActions<S>).reset = (k?) => {
-    execAction(({ draft }) => {
+    execAction((x) => {
       const initial = slice.initialStateFactory();
-      Object.assign(draft, k != null ? { [k]: initial[k] } : initial);
+      x.commit((draft) =>
+        Object.assign(draft, k != null ? { [k]: initial[k] } : initial)
+      );
     });
   };
 

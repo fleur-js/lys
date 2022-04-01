@@ -5,19 +5,27 @@ import { instantiateSlice, Slice, SliceInstance, StateOfSlice } from "./slice";
 
 export class LysContext {
   private slices = new Map<Slice<any, any>, SliceInstance<any>>();
-  private sliceObservers = new Map<Slice<any, any>, () => void>();
+  private sliceObservers = new Map<Slice<any, any>, Array<() => void>>();
 
   public observeSliceUpdate(slice: Slice<any, any>, callback: () => void) {
-    this.sliceObservers.set(slice, callback);
+    const obs = this.sliceObservers.get(slice) ?? [];
+    obs.push(callback);
+
+    this.sliceObservers.set(slice, obs);
   }
 
-  public unobserveSliceUpdate(slice: Slice<any, any>) {
-    this.sliceObservers.delete(slice);
+  public unobserveSliceUpdate(slice: Slice<any, any>, callback: () => void) {
+    const obs = this.sliceObservers.get(slice) ?? [];
+
+    this.sliceObservers.set(
+      slice,
+      obs.filter((cb) => cb !== callback)
+    );
   }
 
   private sliceChanged = (slice: Slice<any, any>) => {
     return () => {
-      this.sliceObservers.get(slice)?.();
+      this.sliceObservers.get(slice)?.forEach((cb) => cb());
     };
   };
 
@@ -41,11 +49,12 @@ export class LysContext {
       this.sliceChanged(slice)
     );
     this.slices.set(slice, instance);
-    this.sliceObservers.get(slice)?.();
+    this.sliceObservers.get(slice)?.forEach((cb) => cb());
     return instance;
   }
 
   public unsetSliceInstance(slice: Slice<any, any>) {
+    this.getSliceInstance(slice)?.dispose();
     this.slices.delete(slice);
     this.sliceObservers.delete(slice);
   }

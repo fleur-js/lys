@@ -9,9 +9,9 @@
 
 ![CI][ci-image-url] [![latest][version-image-url]][npm-url] [![BundleSize][bundlephobia-image]][bundlephobia-url] [![License][license-image]][license-url] [![npm][downloads-image]][npm-url]
 
-# Lys 
-Lys (risu) is an minimal statement manger for '21s React.
+# Lys
 
+Lys (risu) is an minimal statement manger for '21s React.
 
 It's focus to **Per page state management**, not application global state management.  
 Lys is usable to instead of `useReducer`, `Mobx`, or `Recoil` if you have async procedure.
@@ -41,116 +41,132 @@ Summary in [CodeSandbox Example](https://codesandbox.io/s/fleur-lys-official-exa
 
 First, define your slice.
 
+<!-- prettier-ignore -->
 ```tsx
-import { createSlice } from '@fleur/lys'
+import { createSlice } from '@fleur/lys';
 
 const formSlice = createSlice({
   actions: {
     // Define actions
-    async patchItem({ draft }, index: number, patch: Partial<FormState['items'][0]>) {
-      Object.assign(draft.form.items[index], patch)
+    async patchItem({ commit }, index: number, patch: Partial<State['form']['items'][0]>) {
+      commit((draft) => {
+        Object.assign(draft.form.items[index], patch);
+      });
     },
-    async submit({ draft, updateTemporary }) {
-      if (draft.hasError) return
+    async submit({ state, commit }) {
+      if (state.hasError) return;
 
-      // Update the state visible from Component.
-      // It's not effected to current `draft`.
-      // On after complete this action, reset to action result draft.
-      updateTemporary({ submitting: true })
+      commit({ submitting: true });
 
-      draft.form = await (await fetch('/api/users', { 
-        method: 'POST',
-        body: JSON.stringify(draft.form)
-      })).json()
+      commit({
+        submiting: false,
+        form: await (
+          await fetch('/api/users', { body: JSON.stringify(state.form) })
+        ).json(),
+      });
     },
-    async validate({ draft }) {
-      const { form } = draft
-      draft.hasError = false
+    async validate({ state }) {
+      commit({ hasError: false });
 
       // Use your favorite validator
-      draft.hasError = await validateForm(form)
+      commit({ hasError: await validateForm(state.form) });
     },
   },
   computed: {
     // You can define computable values in `computed`
     // `computed` is cached between to next state changed
     itemOf: (state) => (index: number) => state.form.items[index],
-    canSubmit: (state) => !state.submitting
-  }
-}, (): FormState => ({
-  // Define initial state
-  submitting: false,
-  hasError: false,
-  form: {
-    id: null,
-    username: '',
-    items: [{ name: '' }]
-  }
-}))
+    canSubmit: (state) => !state.submitting,
+  },
+  }, (): State => ({
+    // Define initial state
+    submitting: false,
+    hasError: false,
+    form: {
+      id: null,
+      username: "",
+      items: [{ name: "" }],
+    },
+  })
+);
 ```
 
 Next, initialize slice on your page component
 
+<!-- prettier-ignore -->
 ```tsx
-import { useLysSliceRoot, useLysSlice } from '@fleur/lys'
+import { useLysSliceRoot, useLysSlice } from '@fleur/lys';
 
 export const NewUserPage = () => {
-  const { data: initialData, error } = useSWR('/users/1', fetcher)
+  const { data: initialData, error } = useSWR('/users/1', fetcher);
 
   // Initialize slice by `useLysSliceRoot`
   // `initialState` in second argument, it shallow override to Slice's initial state.
   // `initialData` is re-evaluated when it changes from null or undefined to something else.
   //
   // Or can you define `fetchUser` in slice and call it in `useEffect()`
-  const [state, actions] = useLysSliceRoot(formSlice, initialData ? { form: initialData } : null)
+  const [state, actions] = useLysSliceRoot(
+    formSlice,
+    initialData ? { form: initialData } : null
+  );
 
   const handleChangeName = useCallback(({ currentTarget }) => {
     // `set` is builtin action
-    actions.set(({ form }) => { form.username = currentTarget.value })
-  },[])
+    actions.set((draft) => {
+      draft.form.username = currentTarget.value;
+    });
+  }, []);
 
   const handleSubmit = useCallback(async () => {
-    await actions.validate()
-    await actions.submit()
-  }, [])
-  
+    await actions.validate();
+    await actions.submit();
+  }, []);
+
   return (
     <div>
       <label>
-        Display name: <input type="text" value={state.form.name} onChange={handleChangeName} />
+        Display name:
+        <input type="text" value={state.form.name} onChange={handleChangeName} />
       </label>
 
       <h1>Your items</h1>
-      {state.form.items.map((index) => <Item index={index} />)}
+      {state.form.items.map((index) => (
+        <Item index={index} />
+      ))}
 
-      <button disabled={!state.canSubmit} onClick={handleSubmit}>Register</button>
+      <button disabled={!state.canSubmit} onClick={handleSubmit}>
+        Register
+      </button>
     </div>
-  )
-}
+  );
+};
 ```
 
 Use initialize slice into child component
 
+<!-- prettier-ignore -->
 ```tsx
 // In child component
 const Item = ({ index }) => {
-  // Use slice from page root by `useLysSlice`
-  const [state, actions] = useLysSlice(formSlice)
-  const item = state.itemOf(index)
+  // Use slice from root　component by `useLysSlice`
+  const [state, actions] = useLysSlice(formSlice);
+  const item = state.itemOf(index);
 
   const handleChangeName = useCallback(({ currentTarget }) => {
     // Can call action from child component and share state with root.
     // Re-rendering from root (no duplicate re-rendering)
-    actions.patchItem(index, { name: currentTarget.value })
-  }, [])
+    actions.patchItem(index, { name: currentTarget.value });
+  }, []);
 
   return (
     <div>
       Item of #{index + 1}
-      <label>Name: <input type="text" value={item.name} /></label>
+      <label>
+        Name: <input type="text" value={item.name} />
+      </label>
     </div>
-  )
-}
+  );
+};
 ```
 
 ## Testing
@@ -159,44 +175,53 @@ Lys's Slice is very testable.
 Let look testing example!
 
 ```tsx
-import { instantiateSlice, createSlice } from '@fleur/lys'
+import { instantiateSlice, createSlice } from "@fleur/lys";
 
 // Define (Normally, import from other file)
-const slice = createSlice({
-  actions: {
-    increment({ draft }) {
-      draft.count++
-    }
+const slice = createSlice(
+  {
+    actions: {
+      increment({ commit }) {
+        commit((draft) => draft.count++);
+      },
+    },
+    computed: {
+      isZero: (state) => state.count === 0,
+    },
   },
-  computed: {
-    isZero: (state) => state.count === 0
-  }
-}, () => ({ count: 0, submitting: false }))
+  () => ({ count: 0, submitting: false })
+);
 
-describe('Testing slice', () => {
-  it('Should increment one', async () => {
+describe("Testing slice", () => {
+  it("Should increment one", async () => {
     // instantiate
-    const { state, actions } = instantiateSlice(slice)
-    
+    const { state, actions } = instantiateSlice(slice);
+
     // Expection
-    expect(state.current.count).toBe(0)
-    expect(state.current.isZero).toBe(true)
+    expect(state.current.count).toBe(0);
+    expect(state.current.isZero).toBe(true);
 
-    await actions.increment()
-    expect(state.current.count).toBe(1)
-    expect(state.current.isZero).toBe(false)
-  })
+    await actions.increment();
+    expect(state.current.count).toBe(1);
+    expect(state.current.isZero).toBe(false);
+  });
 
-  it('mock slice actions (for component testing)', () => {
-    const actionSpy = jest.fn(({ draft }) => draft.count = 10)
+  it("mock slice actions (for component testing)", () => {
+    const actionSpy = jest.fn(({ state }) => (state.count = 10));
 
-    const { state, actions } = mockSlice(slice, { /* part of initial state here */ }, {
-      /* Mock action implementations here */
-      increment: actionSpy
-    })
+    const { state, actions } = mockSlice(
+      slice,
+      {
+        /* part of initial state here */
+      },
+      {
+        /* Mock action implementations here */
+        increment: actionSpy,
+      }
+    );
 
-    actions.increment()
-    expect(actionSpy).toBeCalled()
-  })
-})
+    actions.increment();
+    expect(actionSpy).toBeCalled();
+  });
+});
 ```
