@@ -5,6 +5,7 @@ export const useLysForm = <
   NS extends keyof StateOfSlice<S>,
   S extends Slice<{ [k in keyof StateOfSlice<S>]: any }, any>
 >(
+  state: StateOfSlice<S>,
   actions: DefaultSliceActions<S>,
   space: NS,
   options: {
@@ -26,19 +27,21 @@ export const useLysForm = <
 
   return useMemo(() => {
     return {
-      bind(name: string) {
+      bind(path: string) {
         const callback =
-          formBindMap.get(name) ??
+          formBindMap.get(path) ??
           (({
             currentTarget,
-          }: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+          }: ChangeEvent<
+            HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+          >) => {
             actions.set((draft) => {
               if (currentTarget instanceof HTMLInputElement) {
                 switch (currentTarget.type) {
                   case "file": {
                     setValue(
                       draft[space],
-                      name,
+                      path,
                       currentTarget.multiple
                         ? [...currentTarget.files]
                         : currentTarget.files[0]
@@ -46,23 +49,23 @@ export const useLysForm = <
                     break;
                   }
                   case "checkbox": {
-                    setValue(draft[space], name, currentTarget.checked);
+                    setValue(draft[space], path, currentTarget.checked);
                     break;
                   }
                   case "radio": {
-                    setValue(draft[space], name, currentTarget.value);
+                    setValue(draft[space], path, currentTarget.value);
                     break;
                   }
                   case "date":
                   case "datetime-local": {
-                    setValue(draft[space], name, currentTarget.valueAsDate);
+                    setValue(draft[space], path, currentTarget.valueAsDate);
                     break;
                   }
                   case "number":
                   case "range": {
                     setValue(
                       draft[space],
-                      name,
+                      path,
                       currentTarget.valueAsNumber ??
                         parseFloat(currentTarget.value)
                     );
@@ -74,20 +77,52 @@ export const useLysForm = <
                     break;
                   }
                   default: {
-                    setValue(draft[space], name, currentTarget.value);
+                    setValue(draft[space], path, currentTarget.value);
                   }
                 }
+
+                return;
               } else if (currentTarget instanceof HTMLTextAreaElement) {
-                setValue(draft[space], name, currentTarget.value);
+                setValue(draft[space], path, currentTarget.value);
+
+                return;
+              } else if (currentTarget instanceof HTMLSelectElement) {
+                if (currentTarget.multiple) {
+                  setValue(
+                    draft[space],
+                    path,
+                    Array.from(currentTarget.selectedOptions).map(
+                      (option) => option.value
+                    )
+                  );
+                } else {
+                  setValue(draft[space], path, currentTarget.value);
+                }
+                return;
               }
+
+              throw new Error(
+                `Unhandlable element type ${
+                  (currentTarget as HTMLElement).nodeType
+                }`
+              );
             });
           });
 
-        formBindMap.set(name, callback);
+        formBindMap.set(path, callback);
 
-        return {
-          onChange: callback,
-        };
+        return Object.defineProperties(
+          {
+            onChange: callback,
+          },
+          {
+            value: {
+              get() {
+                return getValue(state, path);
+              },
+            },
+          }
+        );
       },
     };
   }, []);
@@ -96,9 +131,8 @@ export const useLysForm = <
 const hasOwn = (obj: any, prop: string) =>
   Object.prototype.hasOwnProperty.call(obj, prop);
 
-const setValue = (obj: any, path: string, value: any) => {
+const digDeepest = (obj: any, path: string) => {
   const keys = path.split(".");
-  const lastKey = keys.slice(-1)[0];
   let target: any = obj;
 
   for (let idx = 0, l = keys.length; idx < l; idx++) {
@@ -114,5 +148,21 @@ const setValue = (obj: any, path: string, value: any) => {
     target = target[key];
   }
 
+  return target;
+};
+
+const setValue = (obj: any, path: string, value: any) => {
+  const keys = path.split(".");
+  const lastKey = keys.slice(-1)[0];
+  const target = digDeepest(obj, path);
+
   target[lastKey] = value;
+};
+
+const getValue = (obj: any, path: string) => {
+  const keys = path.split(".");
+  const lastKey = keys.slice(-1)[0];
+  const target = digDeepest(obj, path);
+
+  return target[lastKey];
 };
