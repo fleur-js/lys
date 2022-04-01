@@ -147,12 +147,14 @@ describe("slice", () => {
     expect(spy).toBeCalledWith(expect.objectContaining({ submitting: true }));
   });
 
-  describe("unwrapReadonly", async () => {
-    const { state, actions } = instantiateSlice(slice);
+  describe("unwrapReadonly", () => {
+    it("check", () => {
+      const { state, actions } = instantiateSlice(slice);
 
-    const spy = jest.fn();
-    actions.getUnwrapReadonlySpec(spy);
+      const spy = jest.fn();
+      actions.getUnwrapReadonlySpec(spy);
 
-    expect(spy.mock.calls[0][0]).toEqual(state.current);
+      expect(spy.mock.calls[0][0]).toEqual(state.current);
+    });
   });
 });
