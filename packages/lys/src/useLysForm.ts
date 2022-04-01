@@ -20,7 +20,9 @@ export const useLysForm = <
   const isInitialRender = useRef(true);
 
   if (isInitialRender.current && options.initialState) {
-    actions.set((draft) => (draft[space] = options.initialState()));
+    actions.set(
+      (draft: any) => (draft[space] = options.initialState!() as any)
+    );
   }
 
   isInitialRender.current = false;
@@ -35,17 +37,22 @@ export const useLysForm = <
           }: ChangeEvent<
             HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
           >) => {
-            actions.set((draft) => {
+            actions.set((draft: any) => {
               if (currentTarget instanceof HTMLInputElement) {
                 switch (currentTarget.type) {
                   case "file": {
+                    const files = currentTarget.files;
+                    if (!files) {
+                      setValue(draft[space], path, null);
+                      return;
+                    }
+
                     setValue(
                       draft[space],
                       path,
-                      currentTarget.multiple
-                        ? [...currentTarget.files]
-                        : currentTarget.files[0]
+                      currentTarget.multiple ? Array.from(files) : files[0]
                     );
+
                     break;
                   }
                   case "checkbox": {
