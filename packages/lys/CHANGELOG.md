@@ -13,13 +13,20 @@ Breaking API Changes for simplify state update method.
 // After 3.0.0
 createSlice({
   actions: {
-    someAction: async ({ state, commit }) => {
-      commit({ fetching: true });
+    someAction: async (x) => {
+      x.commit({ fetching: true });
 
-      commit({
+      x.commit({
         data: await fetchAPI(state.id),
         fethcing: false,
       });
+
+      // Get latest state
+      x.getState();
+
+      // Unwrap state from　DeepReadonly<S>
+      x.unwrapReadonly(x.state);
+      x.unwrapReadonly(x.state.nodeOfState);
     },
   },
 });
