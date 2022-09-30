@@ -1,3 +1,7 @@
+## 3.0.1
+
+- [#8](https://github.com/fleur-js/lys/pull/8) Support React 18 (typing only)
+
 ## 3.0.0
 
 Breaking API Changes for simplify state update method.
