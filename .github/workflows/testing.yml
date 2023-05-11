@@ -6,7 +6,7 @@ jobs:
   testing:
     strategy:
       matrix:
-        node-version: [10.x, 12.x, 14.x, 15.x]
+        node-version: [16.x, 18.x, 20.x]
 
     runs-on: ubuntu-latest
 
@@ -18,13 +18,19 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
 
-      - name: Cache
+      - name: Cache .yarn/cache
         uses: actions/cache@v1.0.0
         with:
-          path: ~/.cache/yarn
-          key: ${{ matrix.os }}-${{ hashFiles(format('{0}{1}', github.workspace, '/yarn.lock')) }}
-          restore-keys: |
-            ${{ matrix.os }}-
+          path: .yarn/cache
+          key: yarncache-${{ matrix.node-version }}-${{ hashFiles(format('{0}{1}', github.workspace, '/yarn.lock')) }}
+          restore-keys: yarncache-${{ matrix.node-version }}-
+
+      - name: Cache node_modules
+        uses: actions/cache@v1.0.0
+        with:
+          path: node_modules
+          key: nodemodules-${{ matrix.node-version }}-${{ hashFiles(format('{0}{1}', github.workspace, '/yarn.lock')) }}
+          restore-keys: nodemodules-${{ matrix.node-version }}-
 
       - name: Install deps
         run: yarn install
@@ -38,11 +44,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest]
-        node-version: [15.x]
+        node-version: [18.x]
         steps: [build, lint]
 
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v2
@@ -50,15 +55,21 @@ jobs:
       - name: Setup Node.js for use with actions
         uses: actions/setup-node@v1
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: 18.x
 
-      - name: Cache
+      - name: Cache .yarn/cache
         uses: actions/cache@v1.0.0
         with:
-          path: ~/.cache/yarn
-          key: ${{ matrix.os }}-${{ hashFiles(format('{0}{1}', github.workspace, '/yarn.lock')) }}
-          restore-keys: |
-            ${{ matrix.os }}-
+          path: .yarn/cache
+          key: yarncache-${{ matrix.node-version }}-${{ hashFiles(format('{0}{1}', github.workspace, '/yarn.lock')) }}
+          restore-keys: yarncache-${{ matrix.node-version }}-
+
+      - name: Cache node_modules
+        uses: actions/cache@v1.0.0
+        with:
+          path: node_modules
+          key: nodemodules-${{ matrix.node-version }}-${{ hashFiles(format('{0}{1}', github.workspace, '/yarn.lock')) }}
+          restore-keys: nodemodules-${{ matrix.node-version }}-
 
       - name: Install deps
         run: yarn install
