@@ -1,13 +1,13 @@
-import { createDraft, Draft, finishDraft } from "immer";
 import { ObjectPatcher, patchObject } from "./patchObject";
 
-export type SliceDefinition<State> = {
-  actions: {
-    [K: string]: SliceAction<State>;
-  };
-  computed?: {
-    [K: string]: SliceComputable<State>;
-  };
+export type SliceDefinition<
+  State,
+  A extends Record<string, SliceAction<State>>,
+  C extends Record<string, SliceComputable<State>>,
+> = {
+  state: () => State;
+  actions: A;
+  computed?: C;
 };
 
 export type SliceComputable<State> = {
@@ -15,11 +15,10 @@ export type SliceComputable<State> = {
 };
 
 export type SliceActionContext<State> = {
-  state: DeepReadonly<State>;
   /** Update state and emit changes temporary. */
-  commit: (patcher: ObjectPatcher<Draft<State>>) => void;
+  set: (patcher: ObjectPatcher<State>) => void;
   /** Get latest state */
-  getState: () => State;
+  get: () => State;
   unwrapReadonly: <T extends DeepReadonly<any>>(x: T) => UnwrapDeepReadonly<T>;
 };
 
@@ -27,22 +26,25 @@ export type SliceAction<State> = {
   (context: SliceActionContext<State>, ...args: any[]): void | Promise<void>;
 };
 
-export type Slice<State, SDef extends SliceDefinition<any>> = {
-  initialStateFactory: () => State;
-  actions: SDef["actions"];
-  computables: SDef["computed"] extends undefined | void
-    ? {} // eslint-disable-line @typescript-eslint/ban-types
-    : SDef["computed"];
+export type Slice<
+  S,
+  A extends Record<string, SliceAction<S>>,
+  C extends Record<string, SliceComputable<S>>,
+> = {
+  initialState: () => S;
+  actions: A;
+  computables: C;
 };
 
-export type StateOfSlice<T extends Slice<any, any>> = T extends Slice<
+export type StateOfSlice<T extends Slice<any, any, any>> = T extends Slice<
   infer State,
+  any,
   any
 >
   ? State
   : never;
 
-export type SliceInstance<S extends Slice<any, any>> = {
+export type SliceInstance<S extends Slice<any, any, any>> = {
   state: { readonly current: StateOfSlice<S> & SliceToComputeds<S> };
   actions: SliceToActions<S>;
   dispose: () => void;
@@ -51,19 +53,19 @@ export type SliceInstance<S extends Slice<any, any>> = {
 type ExtraArgs<T> = T extends (_: any, ...args: infer R) => any ? R : never;
 
 // prettier-ignore
-export type SliceToActions<S extends Slice<any, any>> = {
+export type SliceToActions<S extends Slice<any, any, any>> = {
   [K in keyof S["actions"]]:
     ReturnType<S["actions"][K]> extends void | undefined ? (...args: ExtraArgs<S['actions'][K]>) => void
     : ReturnType<S["actions"][K]> extends Promise<any> ? (...args: ExtraArgs<S['actions'][K]>) => Promise<void>
     : never;
 } & {
   /** @param applier Shallow merging object or modifier function */
-  set(applier: ObjectPatcher<Draft<StateOfSlice<S>>>): void;
+  set(applier: ObjectPatcher<StateOfSlice<S>>): void;
   /** @param k Field name to reset to initial state, no specified to reset all fields */
   reset(k?: keyof StateOfSlice<S>): void;
 };
 
-export type SliceToComputeds<S extends Slice<any, any>> = {
+export type SliceToComputeds<S extends Slice<any, any, any>> = {
   [K in keyof S["computables"]]: ReturnType<S["computables"][K]>;
 };
 
@@ -97,20 +99,27 @@ type UnwrapDeepReadonly<T> =
 const unwrapReadonly: SliceActionContext<any>["unwrapReadonly"] = (v) =>
   v as any;
 
-export const createSlice = <S, VDef extends SliceDefinition<S>>(
-  sliceDef: VDef,
-  initialStateFactory: () => S
-): Slice<S, VDef> => {
+export const createStore = <
+  S,
+  A extends Record<string, SliceAction<S>>,
+  C extends Record<string, SliceComputable<S>>,
+>(
+  sliceDef: SliceDefinition<S, A, C>,
+): Slice<S, A, C> => {
   const { computed = {} as any, actions } = sliceDef;
-  return { initialStateFactory, actions, computables: computed };
+  return {
+    initialState: sliceDef.state,
+    actions,
+    computables: computed,
+  };
 };
 
-export const instantiateSlice = <S extends Slice<any, any>>(
+export const instantiateStore = <S extends Slice<any, any, any>>(
   slice: S,
-  initialState?: ObjectPatcher<Draft<StateOfSlice<S>>> | null,
-  changed?: (state: StateOfSlice<S>) => void
+  initialState?: ObjectPatcher<StateOfSlice<S>> | null,
+  changed?: (state: StateOfSlice<S>) => void,
 ): SliceInstance<S> => {
-  const baseInitial = slice.initialStateFactory();
+  const baseInitial = slice.initialState();
   const initial = initialState
     ? patchObject(baseInitial, initialState)
     : baseInitial;
@@ -121,37 +130,32 @@ export const instantiateSlice = <S extends Slice<any, any>>(
 
   const computedResultCache = new Map();
   let latestReferencedState: any = null;
-  const computableProperties: Record<
-    string,
-    PropertyDescriptor
-  > = Object.create(null);
+  const computableProperties: Record<string, PropertyDescriptor> =
+    Object.create(null);
 
   const updateState = (nextState: StateOfSlice<S>) => {
     state.current = Object.defineProperties(
       { ...nextState }, // Strip computed properties
-      computableProperties
+      computableProperties,
     );
     changed?.(nextState);
   };
 
-  const getState = (): DeepReadonly<StateOfSlice<S>> => {
+  const get = (): DeepReadonly<StateOfSlice<S>> => {
     return state.current;
   };
 
-  const commit = (patcher: ObjectPatcher<Draft<StateOfSlice<any>>>) => {
-    const draft = createDraft(state.current);
-    patchObject(draft, patcher);
-    const nextState = finishDraft(draft);
+  const set = (patcher: ObjectPatcher<StateOfSlice<any>>) => {
+    const nextState =
+      typeof patcher === "function"
+        ? Object.assign({}, state.current, patcher(state.current))
+        : Object.assign({}, state.current, patcher);
 
     updateState(nextState);
   };
 
   const execAction = async (action: SliceAction<any>, ...args: any[]) => {
-    const proxyBase = getState();
-    await action(
-      { state: proxyBase, commit, getState, unwrapReadonly },
-      ...args
-    );
+    await action({ set, get, unwrapReadonly }, ...args);
   };
 
   const proxyActions: any = {};
@@ -162,13 +166,13 @@ export const instantiateSlice = <S extends Slice<any, any>>(
   });
 
   (proxyActions as SliceToActions<S>).set = (patcher) => {
-    execAction((x) => x.commit((draft) => patchObject(draft, patcher)));
+    execAction((x) => x.set((draft) => patchObject(draft, patcher)));
   };
   (proxyActions as SliceToActions<S>).reset = (k?) => {
     execAction((x) => {
-      const initial = slice.initialStateFactory();
-      x.commit((draft) =>
-        Object.assign(draft, k != null ? { [k]: initial[k] } : initial)
+      const initial = slice.initialState();
+      x.set((draft) =>
+        Object.assign(draft, k != null ? { [k]: initial[k] } : initial),
       );
     });
   };
@@ -178,8 +182,7 @@ export const instantiateSlice = <S extends Slice<any, any>>(
       enumerable: true,
       configurable: false,
       get: () => {
-        // Check state object change by immer
-        if (state.current === latestReferencedState) {
+        if (Object.is(state.current, latestReferencedState)) {
           return computedResultCache.get(slice.computables[key]);
         }
 

@@ -8,47 +8,45 @@ import React, {
 } from "react";
 import { act } from "react-dom/test-utils";
 import { LysProvider, createLysContext, LysContext } from "./LysContext";
-import { createSlice } from "./slice";
-import { useLysSliceRoot, useLysSlice } from "./useSlice";
+import { createStore } from "./store";
+import { useLysStoreWithInitialState, useLysStore } from "./useSlice";
 
-describe("useLysSlice", () => {
-  const App: React.FC<{ context: LysContext }> = ({ children, context }) => (
+describe("useLysStore", () => {
+  const App: React.FC<{ context: LysContext }> = ({ children }) => (
     <LysProvider>{children}</LysProvider>
   );
 
   beforeEach(() => {
-    jest.useFakeTimers();
+    vi.useFakeTimers();
   });
 
   it("Basic usage: Should intialize, action, action to update state", async () => {
-    const slice = createSlice(
-      {
-        actions: {
-          increment(x) {
-            x.commit({ count: x.state.count + 1 });
-            x.state.isZero;
-          },
-        },
-        computed: {
-          isZero: (state) => state.count === 0,
+    const slice = createStore({
+      state: () => ({ count: 0 }),
+      actions: {
+        increment(x) {
+          x.set((prev) => ({ count: prev.count + 1 }));
+          x.get().isZero;
         },
       },
-      () => ({ count: 0 })
-    );
+      computed: {
+        isZero: (state) => state.count === 0,
+      },
+    });
 
     const context = createLysContext();
     const rootRef = createRef<any>();
     const subRef = createRef<any>();
 
     const RootComponent = forwardRef((_, ref) => {
-      const [state, actions] = useLysSliceRoot(slice);
+      const [state, actions] = useLysStoreWithInitialState(slice);
 
       useImperativeHandle(
         ref,
         () => ({
           increment: () => actions.increment(),
         }),
-        [actions]
+        [actions],
       );
 
       return (
@@ -62,14 +60,14 @@ describe("useLysSlice", () => {
     });
 
     const SubComponent = forwardRef((_, ref) => {
-      const [state, actions] = useLysSlice(slice);
+      const [state, actions] = useLysStore(slice);
 
       useImperativeHandle(
         ref,
         () => ({
           increment: () => actions.increment(),
         }),
-        [actions]
+        [actions],
       );
 
       return <div>Sub: {state.count}</div>;
@@ -85,7 +83,7 @@ describe("useLysSlice", () => {
 
     // Initial State
     expect(result.container.innerHTML).toMatchInlineSnapshot(
-      `"<div><div>Root: 0(isZero: true)</div><div>Sub: 0</div></div>"`
+      `"<div><div>Root: 0(isZero: true)</div><div>Sub: 0</div></div>"`,
     );
 
     // First update
@@ -96,7 +94,7 @@ describe("useLysSlice", () => {
 
     result.rerender(element);
     expect(result.container.innerHTML).toMatchInlineSnapshot(
-      `"<div><div>Root: 1(isZero: false)</div><div>Sub: 1</div></div>"`
+      `"<div><div>Root: 1(isZero: false)</div><div>Sub: 1</div></div>"`,
     );
 
     // Second update
@@ -108,7 +106,7 @@ describe("useLysSlice", () => {
 
     result.rerender(element);
     expect(result.container.innerHTML).toMatchInlineSnapshot(
-      `"<div><div>Root: 2(isZero: false)</div><div>Sub: 2</div></div>"`
+      `"<div><div>Root: 2(isZero: false)</div><div>Sub: 2</div></div>"`,
     );
 
     // Third update by SubComponent
@@ -120,14 +118,14 @@ describe("useLysSlice", () => {
 
     result.rerender(element);
     expect(result.container.innerHTML).toMatchInlineSnapshot(
-      `"<div><div>Root: 3(isZero: false)</div><div>Sub: 3</div></div>"`
+      `"<div><div>Root: 3(isZero: false)</div><div>Sub: 3</div></div>"`,
     );
   });
 
   describe("With async data fetch", () => {
     it("Should accept fetched data", async () => {
       const context = createLysContext();
-      const slice = createSlice({ actions: {} }, () => ({ loaded: false }));
+      const slice = createStore({ actions: {} }, () => ({ loaded: false }));
 
       const useFakeFetch = () => {
         const [loaded, setState] = useState(false);
@@ -141,7 +139,7 @@ describe("useLysSlice", () => {
 
       const Comp = () => {
         const data = useFakeFetch();
-        const [state] = useLysSliceRoot(slice, data);
+        const [state] = useLysStoreWithInitialState(slice, data);
 
         return <>{JSON.stringify(state)}</>;
       };
@@ -149,14 +147,14 @@ describe("useLysSlice", () => {
       const result = render(
         <App context={context}>
           <Comp />
-        </App>
+        </App>,
       );
 
       expect(JSON.parse(result.container.textContent!).loaded).toBe(false);
 
       await act(async () => {
         const waiter = new Promise<void>((r) => setTimeout(r, 1000));
-        jest.runAllTimers();
+        vi.runAllTimers();
         await waiter;
       });
 
@@ -165,8 +163,11 @@ describe("useLysSlice", () => {
 
     it("Should ignore next data", async () => {
       const context = createLysContext();
-      const slice = createSlice({ actions: {} }, () => ({ locked: "initial" }));
-      const fetchSpy = jest.fn();
+      const slice = createStore({
+        state: () => ({ locked: "initial" }),
+        actions: {},
+      });
+      const fetchSpy = vi.fn();
 
       const useFakeFetch = () => {
         const [loaded, setState] = useState(false);
@@ -183,9 +184,9 @@ describe("useLysSlice", () => {
 
       const Comp = () => {
         const data = useFakeFetch();
-        const [state] = useLysSliceRoot(
+        const [state] = useLysStoreWithInitialState(
           slice,
-          data ? data : { locked: "locked!" }
+          data ? data : { locked: "locked!" },
         );
 
         return <>{JSON.stringify(state)}</>;
@@ -194,14 +195,14 @@ describe("useLysSlice", () => {
       const result = render(
         <App context={context}>
           <Comp />
-        </App>
+        </App>,
       );
 
       expect(JSON.parse(result.container.textContent!).locked).toBe("locked!");
 
       await act(async () => {
         const waiter = new Promise<void>((r) => setTimeout(r, 1000));
-        jest.runAllTimers();
+        vi.runAllTimers();
         await waiter;
       });
 

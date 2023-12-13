@@ -23,7 +23,7 @@ describe("lys", () => {
     },
     () => ({
       status: { loading: false, submitted: false },
-    })
+    }),
   );
 
   const Component = forwardRef<SliceToActions<typeof formSlice>>((_, ref) => {
@@ -38,7 +38,7 @@ describe("lys", () => {
     const { container } = render(
       <LysContext>
         <Component ref={ref} />
-      </LysContext>
+      </LysContext>,
     );
 
     // Should display initial state

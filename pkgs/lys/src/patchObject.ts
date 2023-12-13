@@ -1,13 +1,10 @@
 export type ObjectPatcher<T> = ((object: T) => void) | Partial<T>;
 
-export const patchObject = <T extends any>(
-  obj: T,
-  patcher: ObjectPatcher<T>
-): T => {
+export const patchObject = <T>(obj: T, patcher: ObjectPatcher<T>): T => {
   if (typeof patcher === "function") {
     patcher(obj);
   } else {
-    Object.assign(obj, patcher);
+    Object.assign({}, obj, patcher);
   }
 
   return obj;

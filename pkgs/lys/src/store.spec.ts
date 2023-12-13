@@ -1,4 +1,4 @@
-import { createSlice, instantiateSlice } from "./slice";
+import { createStore, instantiateStore } from "./store";
 
 const wait = (ms: number) =>
   new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -10,47 +10,45 @@ describe("slice", () => {
     items: number[];
   }
 
-  const slice = createSlice(
-    {
-      actions: {
-        async submit(x) {
-          x.commit({ submitting: true });
+  const slice = createStore({
+    state: (): State => ({ submitting: false, form: { name: "" }, items: [] }),
+    actions: {
+      async submit(x) {
+        x.set({ submitting: true });
 
-          await wait(1000);
-          x.commit({ submitting: false });
-        },
-        getStateSpec(x, spy: (s: any) => void) {
-          x.commit({ submitting: true });
-          spy({ ...x.getState() });
-        },
-        getUnwrapReadonlySpec(x, spy: (s: any) => void) {
-          const s: State = x.unwrapReadonly(x.getState());
-          spy(s);
-        },
+        await wait(1000);
+        x.set({ submitting: false });
       },
-      computed: {
-        isEditable: (s) => !s.submitting,
-        itemOf: (s) => (index: number) => s.items[index],
+      getStateSpec(x, spy: (s: any) => void) {
+        x.set({ submitting: true });
+        spy({ ...x.get() });
+      },
+      getUnwrapReadonlySpec(x, spy: (s: any) => void) {
+        const s: State = x.unwrapReadonly(x.get());
+        spy(s);
       },
     },
-    (): State => ({ submitting: false, form: { name: "" }, items: [] })
-  );
+    computed: {
+      isEditable: (s) => !s.submitting,
+      itemOf: (s) => (index: number) => s.items[index],
+    },
+  });
 
   beforeEach(() => {
-    jest.useFakeTimers();
+    vi.useFakeTimers();
   });
 
   describe("builtin actions", () => {
     describe("set", () => {
       it("object style", () => {
-        const { state, actions } = instantiateSlice(slice);
+        const { state, actions } = instantiateStore(slice);
 
         actions.set({ submitting: true });
         expect(state.current.submitting).toBe(true);
       });
 
       it("patch function style", () => {
-        const { state, actions } = instantiateSlice(slice);
+        const { state, actions } = instantiateStore(slice);
 
         actions.set((draft) => (draft.form.name = "Hanakla-san"));
         expect(state.current.form.name).toBe("Hanakla-san");
@@ -59,7 +57,7 @@ describe("slice", () => {
 
     describe("reset", () => {
       it("without key", () => {
-        const { state, actions } = instantiateSlice(slice, {
+        const { state, actions } = instantiateStore(slice, {
           form: { name: "aaa" },
         });
 
@@ -68,7 +66,7 @@ describe("slice", () => {
       });
 
       it("with key", async () => {
-        const { state, actions } = instantiateSlice(slice, {
+        const { state, actions } = instantiateStore(slice, {
           submitting: true,
           form: { name: "aaa" },
         });
@@ -82,7 +80,7 @@ describe("slice", () => {
 
   describe("computed", () => {
     it("should select value", () => {
-      const { state, actions } = instantiateSlice(slice);
+      const { state, actions } = instantiateStore(slice);
       expect(state.current.isEditable).toBe(true);
 
       actions.set({ submitting: true });
@@ -90,7 +88,7 @@ describe("slice", () => {
     });
 
     it("should not cache lambda result", () => {
-      const { state, actions } = instantiateSlice(slice);
+      const { state, actions } = instantiateStore(slice);
       actions.set({ items: [0, 1] });
 
       expect(state.current.itemOf(0)).toBe(0);
@@ -100,20 +98,18 @@ describe("slice", () => {
     it("should referenceable computed in action", () => {
       let sampledState: any = null;
 
-      const { actions } = instantiateSlice(
-        createSlice(
-          {
-            actions: {
-              sample: (x) => {
-                sampledState = { ...x.state };
-              },
-            },
-            computed: {
-              computedValue: () => true,
+      const { actions } = instantiateStore(
+        createStore({
+          state: () => ({}),
+          actions: {
+            sample: (x) => {
+              sampledState = { ...x.get() };
             },
           },
-          () => ({})
-        )
+          computed: {
+            computedValue: () => true,
+          },
+        }),
       );
 
       actions.sample();
@@ -121,15 +117,15 @@ describe("slice", () => {
     });
   });
 
-  describe("commit", () => {
+  describe("set", () => {
     it("it works", async () => {
-      const { state, actions } = instantiateSlice(slice);
+      const { state, actions } = instantiateStore(slice);
 
       expect(state.current.submitting).toBe(false);
       const promise = actions.submit();
       expect(state.current.submitting).toBe(true);
 
-      jest.runAllTimers();
+      vi.runAllTimers();
       await promise;
       await promise;
       expect(state.current.submitting).toBe(false);
@@ -137,21 +133,23 @@ describe("slice", () => {
   });
 
   describe("getState", () => {
-    const { state, actions } = instantiateSlice(slice);
+    it("it works", () => {
+      const { state, actions } = instantiateStore(slice);
 
-    expect(state.current).toMatchObject({ submitting: false });
+      expect(state.current).toMatchObject({ submitting: false });
 
-    const spy = jest.fn();
-    actions.getStateSpec(spy);
+      const spy = vi.fn();
+      actions.getStateSpec(spy);
 
-    expect(spy).toBeCalledWith(expect.objectContaining({ submitting: true }));
+      expect(spy).toBeCalledWith(expect.objectContaining({ submitting: true }));
+    });
   });
 
   describe("unwrapReadonly", () => {
     it("check", () => {
-      const { state, actions } = instantiateSlice(slice);
+      const { state, actions } = instantiateStore(slice);
 
-      const spy = jest.fn();
+      const spy = vi.fn();
       actions.getUnwrapReadonlySpec(spy);
 
       expect(spy.mock.calls[0][0]).toEqual(state.current);

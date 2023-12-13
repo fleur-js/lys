@@ -18,6 +18,5 @@
     "noEmitHelpers": false,
     "outDir": "dist",
     "jsx": "react"
-  },
-  "exclude": ["**/*.spec.ts"]
+  }
 }

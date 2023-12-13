@@ -1,17 +1,16 @@
-import { Draft } from "immer";
 import { ObjectPatcher } from "./patchObject";
 import {
   Slice,
-  instantiateSlice,
+  instantiateStore,
   StateOfSlice,
   SliceActionContext,
   SliceAction,
-} from "./slice";
+} from "./store";
 
 export const mockSlice = <S extends Slice<any, any>>(
   slice: S,
-  state: ObjectPatcher<Draft<StateOfSlice<S>>> = {},
-  overrides: { [K in keyof S["actions"]]?: SliceAction<StateOfSlice<S>> } = {}
+  state: ObjectPatcher<StateOfSlice<S>> = {},
+  overrides: { [K in keyof S["actions"]]?: SliceAction<StateOfSlice<S>> } = {},
 ) => {
   const mockSlice = { ...slice };
 
@@ -27,10 +26,10 @@ export const mockSlice = <S extends Slice<any, any>>(
             override(context, ...args);
           }
         : mockSlice.actions[key];
-    }
+    },
   );
 
-  const instance = instantiateSlice(mockSlice);
+  const instance = instantiateStore(mockSlice);
   instance.actions.set(state);
 
   return { state: instance.state, actions: instance.actions };

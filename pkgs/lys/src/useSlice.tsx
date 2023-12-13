@@ -1,6 +1,5 @@
 import { useCallback, useContext, useMemo, useReducer, useRef } from "react";
-import { Draft } from "immer";
-import { Slice, StateOfSlice } from "./slice";
+import { Slice, StateOfSlice } from "./store";
 import { LysReactContext } from "./LysContext";
 import { useIsomorphicLayoutEffect } from "./utils";
 import { ObjectPatcher } from "./patchObject";
@@ -49,7 +48,7 @@ const useLysContext = () => {
 
   if (!lysContext) {
     throw new Error(
-      "Lys: LysContext must be placed of top of useLysSliceRoot or useLysSlice"
+      "Lys: LysContext must be placed of top of useLysSliceRoot or useLysSlice",
     );
   }
 
@@ -59,7 +58,7 @@ const useLysContext = () => {
 const useLysSliceInternal = <S extends Slice<any, any>>(
   slice: S,
   initialState?: ObjectPatcher<Draft<StateOfSlice<S>>> | null,
-  { isRoot = true }: { isRoot?: boolean } = {}
+  { isRoot = true }: { isRoot?: boolean } = {},
 ) => {
   const lysContext = useLysContext();
   const isFirstRendering = useRef(true);
@@ -67,7 +66,7 @@ const useLysSliceInternal = <S extends Slice<any, any>>(
 
   if (!isRoot && !lysContext.hasSliceInstance(slice)) {
     throw new Error(
-      `Lys: Slice must be initialized in upper tree Component with \`useLysSliceRoot(slice)\``
+      `Lys: Slice must be initialized in upper tree Component with \`useLysSliceRoot(slice)\``,
     );
   }
 
@@ -77,7 +76,7 @@ const useLysSliceInternal = <S extends Slice<any, any>>(
     lysContext.hasSliceInstance(slice)
   ) {
     console.warn(
-      "Lys: Slice is already initalized in upper tree. Ignore this if you are using StrictMode"
+      "Lys: Slice is already initalized in upper tree. Ignore this if you are using StrictMode",
     );
   }
 
@@ -88,7 +87,7 @@ const useLysSliceInternal = <S extends Slice<any, any>>(
     () =>
       lysContext.getSliceInstance(slice) ??
       lysContext.createSliceInstance(slice, initialState),
-    [slice]
+    [slice],
   );
 
   const checkAndRerender = useCallback(() => {
@@ -123,13 +122,13 @@ const useLysSliceInternal = <S extends Slice<any, any>>(
   return [instance.state.current, instance.actions] as const;
 };
 
-export const useLysSliceRoot = <S extends Slice<any, any>>(
+export const useLysStoreWithInitialState = <S extends Slice<any, any>>(
   slice: S,
-  initialState?: ObjectPatcher<Draft<StateOfSlice<S>>> | null
+  initialState?: ObjectPatcher<StateOfSlice<S>> | null,
 ) => {
   return useLysSliceInternal(slice, initialState, { isRoot: true });
 };
 
-export const useLysSlice = <S extends Slice<any, any>>(slice: S) => {
+export const useLysStore = <S extends Slice<any, any>>(slice: S) => {
   return useLysSliceInternal(slice, null, { isRoot: false });
 };

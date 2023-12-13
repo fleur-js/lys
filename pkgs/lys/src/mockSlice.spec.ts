@@ -18,7 +18,7 @@ describe("mockSlice", () => {
         state: expect.anything(),
         getState: expect.anything(),
       }),
-      "a"
+      "a",
     );
   });
 });

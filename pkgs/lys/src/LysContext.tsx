@@ -1,7 +1,7 @@
 import { Draft } from "immer";
 import React, { createContext, ReactNode, useContext, useMemo } from "react";
 import { ObjectPatcher } from "./patchObject";
-import { instantiateSlice, Slice, SliceInstance, StateOfSlice } from "./slice";
+import { instantiateStore, Slice, SliceInstance, StateOfSlice } from "./store";
 
 export class LysContext {
   private slices = new Map<Slice<any, any>, SliceInstance<any>>();
@@ -19,7 +19,7 @@ export class LysContext {
 
     this.sliceObservers.set(
       slice,
-      obs.filter((cb) => cb !== callback)
+      obs.filter((cb) => cb !== callback),
     );
   }
 
@@ -30,7 +30,7 @@ export class LysContext {
   };
 
   public getSliceInstance<S extends Slice<any, any>>(
-    slice: S
+    slice: S,
   ): SliceInstance<S> | undefined {
     return this.slices.get(slice);
   }
@@ -41,12 +41,12 @@ export class LysContext {
 
   public createSliceInstance<S extends Slice<any, any>>(
     slice: S,
-    initialState?: ObjectPatcher<Draft<StateOfSlice<S>>> | null
+    initialState?: ObjectPatcher<Draft<StateOfSlice<S>>> | null,
   ) {
-    const instance = instantiateSlice(
+    const instance = instantiateStore(
       slice,
       initialState,
-      this.sliceChanged(slice)
+      this.sliceChanged(slice),
     );
     this.slices.set(slice, instance);
     this.sliceObservers.get(slice)?.forEach((cb) => cb());

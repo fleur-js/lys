@@ -43,42 +43,10 @@ First, define your slice.
 
 <!-- prettier-ignore -->
 ```tsx
-import { createSlice } from '@fleur/lys';
+import { createStore } from '@fleur/lys';
 
-const formSlice = createSlice({
-  actions: {
-    // Define actions
-    async patchItem({ commit }, index: number, patch: Partial<State['form']['items'][0]>) {
-      commit((draft) => {
-        Object.assign(draft.form.items[index], patch);
-      });
-    },
-    async submit({ state, commit }) {
-      if (state.hasError) return;
-
-      commit({ submitting: true });
-
-      commit({
-        submiting: false,
-        form: await (
-          await fetch('/api/users', { body: JSON.stringify(state.form) })
-        ).json(),
-      });
-    },
-    async validate({ state }) {
-      commit({ hasError: false });
-
-      // Use your favorite validator
-      commit({ hasError: await validateForm(state.form) });
-    },
-  },
-  computed: {
-    // You can define computable values in `computed`
-    // `computed` is cached between to next state changed
-    itemOf: (state) => (index: number) => state.form.items[index],
-    canSubmit: (state) => !state.submitting,
-  },
-  }, (): State => ({
+const useFormStore = createStore({
+  initialState: (): State => ({
     // Define initial state
     submitting: false,
     hasError: false,
@@ -87,8 +55,40 @@ const formSlice = createSlice({
       username: "",
       items: [{ name: "" }],
     },
-  })
-);
+  }),
+  actions: {
+    // Define actions
+    async patchItem({ set }, index: number, patch: Partial<State['form']['items'][0]>) {
+      set((draft) => {
+        Object.assign(draft.form.items[index], patch);
+      });
+    },
+    async submit({ get, set }) {
+      if (get().hasError) return;
+
+      set({ submitting: true });
+
+      set({
+        submiting: false,
+        form: await (
+          await fetch('/api/users', { body: JSON.stringify(get().form) })
+        ).json(),
+      });
+    },
+    async validate({ set, get }) {
+      set({ hasError: false });
+
+      // Use your favorite validator
+      set({ hasError: await validateForm(get().form) });
+    },
+  },
+  computed: {
+    // You can define computable values in `computed`
+    // `computed` is cached between to next state changed
+    itemOf: (state) => (index: number) => state.form.items[index],
+    canSubmit: (state) => !state.submitting,
+  },
+});
 ```
 
 Next, initialize slice on your page component
@@ -104,8 +104,8 @@ export const NewUserPage = () => {
   // `initialState` in second argument, it shallow override to Slice's initial state.
   // `initialData` is re-evaluated when it changes from null or undefined to something else.
   //
-  // Or can you define `fetchUser` in slice and call it in `useEffect()`
-  const [state, actions] = useLysSliceRoot(
+  // Or define `fetchUser` in slice and call it in `useEffect()`
+  const [state, actions] = useLysStoreWithInitialState(
     formSlice,
     initialData ? { form: initialData } : null
   );
@@ -148,8 +148,8 @@ Use initialize slice into child component
 ```tsx
 // In child component
 const Item = ({ index }) => {
-  // Use slice from root　component by `useLysSlice`
-  const [state, actions] = useLysSlice(formSlice);
+  // Use slice from root　component by `useLysStore`
+  const [state, actions] = useLysStore(formSlice);
   const item = state.itemOf(index);
 
   const handleChangeName = useCallback(({ currentTarget }) => {
@@ -175,22 +175,23 @@ Lys's Slice is very testable.
 Let look testing example!
 
 ```tsx
-import { instantiateSlice, createSlice } from "@fleur/lys";
+import { instantiateSlice, createStore } from "@fleur/lys";
 
 // Define (Normally, import from other file)
-const slice = createSlice(
-  {
-    actions: {
-      increment({ commit }) {
-        commit((draft) => draft.count++);
-      },
-    },
-    computed: {
-      isZero: (state) => state.count === 0,
+const slice = createStore({
+  state: () => ({
+    count: 0,
+    submitting: false,
+  }),
+  actions: {
+    increment({ set }) {
+      set((draft) => draft.count++);
     },
   },
-  () => ({ count: 0, submitting: false })
-);
+  computed: {
+    isZero: (state) => state.count === 0,
+  },
+});
 
 describe("Testing slice", () => {
   it("Should increment one", async () => {
